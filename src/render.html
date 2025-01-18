@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Three.js Renderer</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+    let renderer, scene, camera, mixer, model;
+
+    function init() {
+      const canvas = document.createElement("canvas");
+      document.body.appendChild(canvas);
+
+      renderer = new THREE.WebGLRenderer({ canvas, preserveDrawingBuffer: true, antialias: true, alpha: true, });
+      renderer.setSize(1024, 1024);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      document.body.appendChild(renderer.domElement);
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+      camera.position.set(0, 3, 5);
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binaryString = atob(base64);
+
+      const length = binaryString.length;
+      const bytes = new Uint8Array(length);
+
+      for (let i = 0; i < length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      return bytes.buffer;
+    }
+
+    async function loadModel() {
+      const loader = new GLTFLoader();
+      const base64Data = await window.readFile('resources/model.glb');
+      const modelData = base64ToArrayBuffer(base64Data);
+      model = await loader.parseAsync(modelData);
+
+      model.scene.position.y = 1.5;
+      model.scene.scale.set(2, 2, 2);
+      scene.add(model.scene);
+    }
+
+    async function loadEnvironment() {
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      pmremGenerator.compileEquirectangularShader();
+      const loader = new RGBELoader();
+      const base64Data = await window.readFile('resources/forest_slope_1k.hdr');
+      const envData = base64ToArrayBuffer(base64Data);
+
+      const blob = new Blob([envData]);
+      const url = URL.createObjectURL(blob);
+
+      const hdrTexture = await loader.loadAsync(url);
+      hdrTexture.mapping = THREE.EquirectangularReflectionMapping;
+      hdrTexture.needsUpdate = true;
+
+      const envMap = pmremGenerator.fromEquirectangular(hdrTexture).texture;
+      scene.environment = envMap;
+    }
+
+    async function saveImage(name) {
+      renderer.render(scene, camera);
+      const canvas = renderer.domElement;
+      const imageData = canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+
+      await window.saveFile(name, imageData);
+    }
+
+    async function renderImage() {
+      await init();
+      await loadModel();
+      await loadEnvironment();
+      await saveImage("image.png");
+    }
+
+    window.renderImage = renderImage;
+  </script>
+</body>
+
+</html>

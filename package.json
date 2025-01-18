@@ -1,0 +1,13 @@
+{
+  "name": "headless-threejs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/headless-three.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node src/headless-three.js"
+  },
+  "dependencies": {
+    "puppeteer": "24.1.0"
+  }
+}
